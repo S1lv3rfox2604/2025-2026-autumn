@@ -3,17 +3,21 @@
 #include <iostream>
 #include "solver.h"
 
-// Метод Гаусса с выбором главного элемента (работаем с A и b отдельно)
 bool gauss_solve(int n, double* A, double* b, double* x) {
+    int* col_perm = new int[n];
+    for (int j = 0; j < n; ++j) col_perm[j] = j;
+
     // Прямой ход
     for (int k = 0; k < n; ++k) {
         // Поиск главного элемента
         double max_val = 0.0;
         int i_max = k, j_max = k;
         for (int i = k; i < n; ++i) {
+            double* row_i = A + i*n;
             for (int j = k; j < n; ++j) {
-                if (std::abs(A[i*n + j]) > max_val) {
-                    max_val = std::abs(A[i*n + j]);
+                double val = std::abs(row_i[col_perm[j]]);
+                if (val > max_val) {
+                    max_val = val;
                     i_max = i;
                     j_max = j;
                 }
@@ -21,30 +25,33 @@ bool gauss_solve(int n, double* A, double* b, double* x) {
         }
 
         if (max_val == 0.0) {
+            delete[] col_perm;
             return false; // Полностью нулевая подматрица
         }
 
         // Перестановка строк
         if (i_max != k) {
+            double* row_k = A + k*n;
+            double* row_im = A + i_max*n;
             for (int j = 0; j < n; ++j) {
-                std::swap(A[k*n + j], A[i_max*n + j]);
+                std::swap(row_k[j], row_im[j]);
             }
             std::swap(b[k], b[i_max]);
         }
 
-        // Перестановка столбцов
+        // Перестановка столбцов через col_perm[]
         if (j_max != k) {
-            for (int i = 0; i < n; ++i) {
-                std::swap(A[i*n + k], A[i*n + j_max]);
-            }
+            std::swap(col_perm[k], col_perm[j_max]);
         }
 
         // Зануление чисел под главной диагональю
-        double pivot = A[k*n + k];
+        double* row_k = A + k*n;
+        double pivot = row_k[col_perm[k]];
         for (int i = k+1; i < n; ++i) {
-            double factor = A[i*n + k] / pivot;
+            double* row_i = A + i*n;
+            double factor = row_i[col_perm[k]] / pivot;
             for (int j = k; j < n; ++j) {
-                A[i*n + j] -= factor * A[k*n + j];
+                row_i[col_perm[j]] -= factor * row_k[col_perm[j]];
             }
             b[i] -= factor * b[k];
         }
@@ -52,12 +59,15 @@ bool gauss_solve(int n, double* A, double* b, double* x) {
 
     // Обратный ход
     for (int i = n-1; i >= 0; --i) {
+        double* row_i = A + i*n;
         double sum = b[i];
-        for (int j = i+1; j < n; ++j)
-            sum -= A[i*n + j] * x[j];
-        x[i] = sum / A[i*n + i];
+        for (int j = i+1; j < n; ++j) {
+            sum -= row_i[col_perm[j]] * x[j];
+        }
+        x[i] = sum / row_i[col_perm[i]];
     }
 
+    delete[] col_perm;
     return true;
 }
 
